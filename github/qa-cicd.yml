@@ -1,34 +1,36 @@
 name: cicd pipeline
+
 on:
   push:
-    - qa
-  paths:
-    - client/**
-    - server/**
-    - github/qa-cicd.yml
+    branches:
+      - qa
+    paths:
+      - 'client/**'
+      - 'server/**'
+      - '.github/qa-cicd.yml'
 
-  jobs:
-    gitleaks-scan:
-      name: gitleaks Scan
-      runs-on: ubuntu-latest
-      steps:
-        - name: checkout source code
-          users: actions/checkout@v4
+jobs:
+  gitleaks-scan:
+    name: gitleaks Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
 
-          -name: run gitleaks scan
-          run:
-            docker run -rm\
-          -v "${{github.workspace}}:/repo"\
-           zricethezav/gitleaks:latest detect\
-         --source=/repo\
-         --report-format=json\
-         --report-path=/repo/gitleaks-report.json
-         --redact\
-         --exit-code=0
+      - name: run gitleaks scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            zricethezav/gitleaks:latest detect \
+            --source=/repo \
+            --report-format=json \
+            --report-path=/repo/gitleaks-report.json \
+            --redact \
+            --exit-code=0
 
-        - name: upload artifacts
-          users: actions/upload-artifact@v4
-          with:
-            name: gitleaks-report
-            path: gitleaks-report.json
-            if-noo-files-found: warn
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: warn
