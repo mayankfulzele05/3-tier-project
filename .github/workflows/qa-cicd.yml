@@ -122,3 +122,109 @@ jobs:
           path: checkov-k8s-report.json
           if-no-files-found: warn
 
+
+ client-trivy-fs:
+    name: trivy scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+    steps:
+      - name: source code
+        uses: actions/checkout@v4
+
+      - name: Install trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: verify trivy installation
+        run: |
+          trivy --version
+          which trivy
+
+      - name: trivy scan
+        run: |
+          trivy fs ./client \
+            --format json \
+            --output client-trivy-fs-report.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+      - name: trivy scan table
+        run: |
+          trivy fs ./client \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+
+      - name: upload trivy scan report json
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy scan report
+          path: trivy-report.json
+          if-no-files-found: warn
+
+
+      - name: upload trivy scan report table
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy scan report
+          path: trivy-report.txt
+          if-no-files-found: warn
+
+ server-trivy-fs:
+    name: trivy scan server
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+    steps:
+      - name: source code
+        uses: actions/checkout@v4
+
+      - name: Install trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: verify trivy installation
+        run: |
+          trivy --version
+          which trivy
+
+     - name: trivy scan for server
+        run: |
+          trivy fs ./server \
+            --format json \
+            --output client-trivy-fs-report-server.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+    - name: trivy scan table for server
+        run: |
+          trivy fs ./server \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+
+     - name: upload trivy scan report json
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy scan report
+          path: trivy-report.json
+          if-no-files-found: warn
+
+
+     - name: upload trivy scan report table
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy scan report
+          path: trivy-report.txt
+          if-no-files-found: warn
+
+
