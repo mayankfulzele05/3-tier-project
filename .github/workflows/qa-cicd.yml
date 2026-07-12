@@ -55,6 +55,7 @@ jobs:
         run: |
           checkov -d . \
             --framework terraform \
+            --skip-download \
             --output json > checkov-terraform-report.json || true
 
       - name: upload checkov terraform report
@@ -224,24 +225,20 @@ jobs:
           path: server-trivy-fs-report.txt
           if-no-files-found: warn
 
-
- sonarqube:
-   name: sonarqube analysis and quality gate check     
+  sonarqube:
+    name: sonarqube analysis and quality gate check     
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          # Disabling shallow clone is recommended for improving relevancy of reporting.
           fetch-depth: 0
 
-      # Triggering SonarQube analysis as results of it are required by Quality Gate check.
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # Check the Quality Gate status.
       - name: SonarQube Quality Gate check
         id: sonarqube-quality-gate-check
         uses: sonarsource/sonarqube-quality-gate-action@master
@@ -249,9 +246,7 @@ jobs:
           pollingTimeoutSec: 600
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }} #OPTIONAL
-
-
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: "Example show SonarQube Quality Gate Status value"
         run: echo "The Quality Gate status is ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
