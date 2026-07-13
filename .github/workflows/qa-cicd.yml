@@ -94,7 +94,7 @@ jobs:
           path: checkov-dockerfile-report.json
           if-no-files-found: warn
 
-  checkov-k8s: 
+  checkov-k8s:
     name: k8s scan
     runs-on: ubuntu-latest
     needs: gitleaks-scan
@@ -225,23 +225,141 @@ jobs:
           path: server-trivy-fs-report.txt
           if-no-files-found: warn
 
-  sonarqube:
-    name: sonarqube analysis and quality gate check     
+  client-lint:
+    name: client lint
     runs-on: ubuntu-latest
+    needs:
+      - client-trivy-fs
+      - checkov-terraform
+      - checkov-dockerfile
+      - checkov-k8s
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
+
+      - name: setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: run client lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  server-lint:
+    name: server lint
+    runs-on: ubuntu-latest
+    needs:
+      - server-trivy-fs
+      - checkov-terraform
+      - checkov-dockerfile
+      - checkov-k8s
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
+
+      - name: setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: run server lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  client-test:
+    name: client test
+    runs-on: ubuntu-latest
+    needs:
+      - client-lint
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
+
+      - name: setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: run client test
+        run: npm test --if-present
+        continue-on-error: true
+
+  server-test:
+    name: server test
+    runs-on: ubuntu-latest
+    needs:
+      - server-lint
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
+
+      - name: setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: run server test
+        run: npm test --if-present
+        continue-on-error: true
+
+  sonarqube:
+    name: sonarqube analysis and quality gate check
+    runs-on: ubuntu-latest
+    needs:
+      - server-test
+      - client-test
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Debug
-      run: |
-        pwd
-        ls -la
-        echo "---------"
-        find . -name "sonar-project.properties"
-        echo "---------"
-        cat sonar-project.properties
+        run: |
+          pwd
+          ls -la
+          echo "----------"
+          find . -name "sonar-project.properties"
+          echo "----------"
+          if [ -f "sonar-project.properties" ]; then cat sonar-project.properties; fi
 
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: SonarQube Quality Gate check
         id: sonarqube-quality-gate-check
@@ -254,3 +372,4 @@ jobs:
 
       - name: "Example show SonarQube Quality Gate Status value"
         run: echo "The Quality Gate status is ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
+
