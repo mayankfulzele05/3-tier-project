@@ -364,7 +364,6 @@ jobs:
     name: docker build
     runs-on: ubuntu-latest
     needs:
-      - sonarqube
       - client-build
       - server-test
     steps:
