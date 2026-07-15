@@ -434,6 +434,22 @@ jobs:
           name: image-trivy-scan-report-table
           path: image-trivy-fs-report.txt
           if-no-files-found: warn
+          
+      - name: Generate source SBOM
+        uses: anchore/sbom-action@v0
+        with: 
+         path: .
+         format: spdx-json
+         output-file: source-sbom.spdx.json
+         upload-artifact: true
+
+      - name: generate image SBOM
+        uses: anchore/sbom-action@v0
+        with:
+         image: mayankdev12/nodejs-app:${{ github.sha }}
+         format: spdx-json
+         output-file: image-sbom.spdx.json
+         upload-artifact: true
 
       - name: Push Image to Registry
         uses: docker/build-push-action@v6
@@ -443,4 +459,8 @@ jobs:
           tags: |
             mayankdev12/nodejs-app:${{ github.sha }}
             mayankdev12/nodejs-app:latest
+
+    
+      
+          
 
