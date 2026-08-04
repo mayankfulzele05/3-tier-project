@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - K8-manifest/prod/**
-      - .github/workflows/prod-cicd.yaml
+      - .github/workflows/prod-cicd.yml
 
 permissions:
   contents: write
