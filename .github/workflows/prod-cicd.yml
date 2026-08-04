@@ -55,3 +55,20 @@ uses: actions/checkout@v4
 with:
 ref: main
 
+ - name: update image tag in manifest
+        run: |
+          sed -i "s|image:mayankdev12/nodejs-app:.*|image:mayankdev12/nodejs-app:${GITHUB_SHA}|g" K8-manifest/prod/app-deployment.yaml
+
+      - name: Show updated manifest(debug)
+        run: |
+          cat K8-manifest/app-deployment.yaml
+
+      - name: commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add K8-manifest/prod/app-deployment.yaml
+          git commit -m "update QA image to ${GITHUB_SHA} [skip ci]" || echo "no changes to commit"
+          git push origin main 
+
+
