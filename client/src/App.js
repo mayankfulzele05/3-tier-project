@@ -42,7 +42,7 @@ function App() {
     return (
         <div className="app">
             <div className="navbar">
-                <div className="brand">DevOps Project</div>
+                <div className="brand">DevOps</div>
                 <div className="nav-links">
                     <a className="home" href="/">Home</a>
                     <a className="youtube" href="https://www.youtube.com/@devopsshack/videos">YouTube</a>
