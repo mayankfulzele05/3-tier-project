@@ -1,9 +1,3 @@
-## ============================================================
-## 02-loki-values.yaml
-## Chart: grafana/loki
-## Version: 6.29.0
-## ============================================================
-
 deploymentMode: SingleBinary
 
 loki:
@@ -13,7 +7,7 @@ loki:
     replication_factor: 1
 
   ## ── S3 Storage ─────────────────────────────────────────────
-  ## Bucket name is hardcoded (patched by deploy.ps1 at runtime)
+  ## Bucket name is hardcoded (patched by deploy.sh at runtime)
   storage:
     type: s3
     bucketNames:
@@ -63,13 +57,22 @@ loki:
       local:
         directory: /var/loki/rules
 
+## ── Fix for Small Clusters: Disable Large External Memcached ──
+## Loki 6.x provisions huge memcached instances by default.
+## For a small cluster, we disable them to stop the massive memory requests.
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
+
 ## ── Single Binary (suitable for QA) ─────────────────────────
 singleBinary:
   replicas: 1
 
   resources:
     requests:
-      cpu: 500m
+      cpu: 250m     # Reduced slightly from 500m to fit smoothly into tight nodes
       memory: 512Mi
     limits:
       cpu: 1000m
@@ -80,11 +83,6 @@ singleBinary:
     enabled: true
     storageClass: ebs-sc
     size: 10Gi
-
-  ## Uncomment if using IRSA for S3 access
-  # serviceAccount:
-  #   annotations:
-  #     eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/loki-irsa-role
 
 ## ── Disable scaled-out components (not needed for SingleBinary) ──
 read:
@@ -119,8 +117,8 @@ gateway:
 
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m      # Reduced from 100m to save CPU space
+      memory: 64Mi  # Reduced from 128Mi to save RAM space
     limits:
       cpu: 200m
       memory: 256Mi
