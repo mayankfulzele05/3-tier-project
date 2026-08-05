@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail 
+set -euo pipefail
 
 # ============================================================
 # deploy.ps1
@@ -13,13 +13,13 @@ set -euo pipefail
 # ════════════════════════════════════════════════════════════
 #  EDIT THESE BEFORE RUNNING
 # ════════════════════════════════════════════════════════════
-S3_BUCKET="qa-demo-s3-777"
+S3_BUCKET="qa-demo-00997"
 AWS_REGION="ap-south-1"
 CLUSTER_NAME="cluster"
 MONITORING_NS="monitoring"
 QA_NS="qa"
 GRAFANA_ADMIN_PASSWORD="admin123"
-NODE_ROLE_NAME="arn:aws:iam::896568317269:role/example-eks-node-group-dc46a6fef4747d8ac143aade82"
+NODE_ROLE_NAME="example-eks-node-group-dc46a6fef4747d8ac143aade82"
 
 PROMETHEUS_CHART_VERSION="67.4.0"
 LOKI_CHART_VERSION="6.29.0"
@@ -65,11 +65,13 @@ read -p "Proceed with deployment? (y/n): " CONFIRM
 # ── Creating namespaces ──────────────────────────────────────
 step "Creating namespaces"
 
-kubectl create namespace "$MONITORING_NS" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create namespace "$QA_NS" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace "$MONITORING_NS" --dry-run=client -o yaml | kubectl apply --server-side -f -
+kubectl create namespace "$QA_NS" --dry-run=client -o yaml | kubectl apply --server-side -f -
 
-kubectl label namespace "$MONITORING_NS" kubernetes.io/metadata.name="$MONITORING_NS" --overwrite
-kubectl label namespace "$QA_NS" kubernetes.io/metadata.name="$QA_NS" --overwrite
+
+kubectl label namespace "$MONITORING_NS" kubernetes.io/metadata.name="${MONITORING_NS}" --overwrite
+kubectl label namespace "$QA_NS" kubernetes.io/metadata.name="${QA_NS}" --overwrite
+
 
 # ── Grafana admin secret ──────────────────────────────────────
 step "Creating Grafana admin secret"
