@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail 
+
 # ============================================================
 # deploy.ps1
 # Grafana Observability Stack for EKS
@@ -11,11 +15,11 @@
 # ════════════════════════════════════════════════════════════
 S3_BUCKET="qa-demo-s3-777"
 AWS_REGION="ap-south-1"
-CLUSTER_NAME="my-cluster"
+CLUSTER_NAME="cluster"
 MONITORING_NS="monitoring"
 QA_NS="qa"
 GRAFANA_ADMIN_PASSWORD="admin123"
-NODE_ROLE_NAME="eksctl-my-cluster-nodegroup-my-nod-NodeInstanceRole-YAYdXDbAHW80"
+NODE_ROLE_NAME="arn:aws:iam::896568317269:role/example-eks-node-group-dc46a6fef4747d8ac143aade82"
 
 PROMETHEUS_CHART_VERSION="67.4.0"
 LOKI_CHART_VERSION="6.29.0"
@@ -58,7 +62,8 @@ log "S3 Bucket       : $S3_BUCKET"
 read -p "Proceed with deployment? (y/n): " CONFIRM
 [[ "$CONFIRM" != "y" ]] && die "Deployment cancelled"
 # ── Namespaces ────────────────────────────────────────────────
-Step "Creating namespaces"
+# ── Creating namespaces ──────────────────────────────────────
+step "Creating namespaces"
 
 kubectl create namespace "$MONITORING_NS" --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace "$QA_NS" --dry-run=client -o yaml | kubectl apply -f -
@@ -67,7 +72,7 @@ kubectl label namespace "$MONITORING_NS" kubernetes.io/metadata.name="$MONITORIN
 kubectl label namespace "$QA_NS" kubernetes.io/metadata.name="$QA_NS" --overwrite
 
 # ── Grafana admin secret ──────────────────────────────────────
-Step "Creating Grafana admin secret"
+step "Creating Grafana admin secret"
 
 kubectl create secret generic grafana-admin-secret \
     --namespace "$MONITORING_NS" \
@@ -75,10 +80,10 @@ kubectl create secret generic grafana-admin-secret \
     --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" \
     --dry-run=client -o yaml | kubectl apply -f -
 
-Log "Secret: grafana-admin-secret created"
+log "Secret: grafana-admin-secret created"
 
 # ── S3 bucket for Loki ────────────────────────────────────────
-Step "Setting up S3 bucket for Loki: $S3_BUCKET"
+step "Setting up S3 bucket for Loki: $S3_BUCKET"
 
 if aws s3 ls "s3://$S3_BUCKET" >/dev/null 2>&1
 then
@@ -86,94 +91,113 @@ then
 else
     log "Creating bucket..."
 
-    aws s3api create-bucket \
-        --bucket "$S3_BUCKET" \
-        --region "$AWS_REGION" \
-        --create-bucket-configuration LocationConstraint="$AWS_REGION"
+    # Check region to prevent us-east-1 API failures
+    if [[ "$AWS_REGION" == "us-east-1" ]]; then
+        aws s3api create-bucket \
+            --bucket "$S3_BUCKET" \
+            --region "$AWS_REGION"
+    else
+        aws s3api create-bucket \
+            --bucket "$S3_BUCKET" \
+            --region "$AWS_REGION" \
+            --create-bucket-configuration LocationConstraint="$AWS_REGION"
+    fi
 
     aws s3api put-public-access-block \
         --bucket "$S3_BUCKET" \
         --public-access-block-configuration \
         BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-fi
-    $lifecycle = @'
+
+    # Creating lifecycle configuration file
+    cat <<EOF > lifecycle.json
 {
   "Rules": [{
     "ID": "loki-log-expiry",
     "Status": "Enabled",
-    "Filter": {"Prefix": ""},
-    "Expiration": {"Days": 35},
-    "NoncurrentVersionExpiration": {"NoncurrentDays": 7}
+    "Filter": {
+      "Prefix": ""
+    },
+    "Expiration": {
+      "Days": 35
+    },
+    "NoncurrentVersionExpiration": {
+      "NoncurrentDays": 7
+    }
   }]
 }
-'@
-    $lifecycle | aws s3api put-bucket-lifecycle-configuration `
-        --bucket $S3_BUCKET `
-        --lifecycle-configuration file:///dev/stdin
+EOF
 
-    Log "Bucket created with lifecycle policy (35-day expiry)"
-}
+    aws s3api put-bucket-lifecycle-configuration \
+        --bucket "$S3_BUCKET" \
+        --lifecycle-configuration file://lifecycle.json
+
+    rm -f lifecycle.json
+    log "Bucket created with lifecycle policy (35-day expiry)"
+fi
+
 
 # ── IAM policy for Loki S3 access ─────────────────────────────
-Step "Setting up IAM policy for Loki S3 access"
+# ── Setting up IAM policy for Loki S3 access ──────────────────
+step "Setting up IAM policy for Loki S3 access"
 
-# Patch the bucket name into the policy file
-sed -i "s|<qa-demo-00997>|$S3_BUCKET|g" 05-loki-s3-iam-policy.json
+# Patch the bucket name into the policy file (Mac/Linux compatible sed syntax)
+sed -i.bak "s|<qa-demo-00997>|$S3_BUCKET|g" 05-loki-s3-iam-policy.json && rm -f 05-loki-s3-iam-policy.json.bak
 
 # Check if LokiS3Policy already exists
-$ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
-$POLICY_ARN = "arn:aws:iam::${ACCOUNT_ID}:policy/LokiS3Policy"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+POLICY_ARN="arn:aws:iam::$ACCOUNT_ID:policy/LokiS3Policy"
 
-$existingPolicy = aws iam get-policy --policy-arn $POLICY_ARN 2>$null
-if ($LASTEXITCODE -eq 0) {
-    Log "LokiS3Policy exists - creating new version with correct bucket name..."
-    aws iam create-policy-version `
-        --policy-arn $POLICY_ARN `
-        --policy-document file://05-loki-s3-iam-policy.json `
+if aws iam get-policy --policy-arn "$POLICY_ARN" >/dev/null 2>&1
+then
+    log "LokiS3Policy exists - updating..."
+
+    aws iam create-policy-version \
+        --policy-arn "$POLICY_ARN" \
+        --policy-document file://05-loki-s3-iam-policy.json \
         --set-as-default
-    Log "LokiS3Policy updated"
-} else {
-    Log "Creating LokiS3Policy..."
-    $POLICY_ARN = (aws iam create-policy `
-        --policy-name LokiS3Policy `
-        --policy-document file://05-loki-s3-iam-policy.json `
-        --query Policy.Arn --output text)
-    Log "LokiS3Policy created: $POLICY_ARN"
-}
+else
+    log "Creating LokiS3Policy..."
 
-# Attach to node role
-Log "Attaching LokiS3Policy to node role: $NODE_ROLE_NAME"
-aws iam attach-role-policy `
-    --role-name $NODE_ROLE_NAME `
-    --policy-arn $POLICY_ARN
+    POLICY_ARN=$(aws iam create-policy \
+        --policy-name LokiS3Policy \
+        --policy-document file://05-loki-s3-iam-policy.json \
+        --query Policy.Arn \
+        --output text)
+fi
 
-Log "IAM policy attached"
+# Attach to node role (Added missing backslash line continuation)
+log "Attaching LokiS3Policy to node role: $NODE_ROLE_NAME"
+aws iam attach-role-policy \
+    --role-name "$NODE_ROLE_NAME" \
+    --policy-arn "$POLICY_ARN"
+
+log "IAM policy attached"
 
 # Patch S3 bucket name and region into loki values
-sed -i \
+sed -i.bak \
 -e "s|YOUR_S3_BUCKET|$S3_BUCKET|g" \
 -e "s|ap-south-1|$AWS_REGION|g" \
-02-loki-values.yaml
+02-loki-values.yaml && rm -f 02-loki-values.yaml.bak
 
 # ── Helm repos ────────────────────────────────────────────────
-Step "Adding & updating Helm repos"
+step "Adding & updating Helm repos"
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana               https://grafana.github.io/helm-charts
 helm repo add eks                   https://aws.github.io/eks-charts
 helm repo update
 
-Log "Repos updated"
+log "Repos updated"
 
 # ── AWS Load Balancer Controller ──────────────────────────────
-Step "Checking AWS Load Balancer Controller"
+step "Checking AWS Load Balancer Controller"
 
-$albStatus = helm status aws-load-balancer-controller -n kube-system 2>$null
-if ($LASTEXITCODE -eq 0) {
-    Log "AWS Load Balancer Controller already installed, skipping"
-} else {
-    Warn "AWS Load Balancer Controller not found - installing..."
-    Warn "Make sure your node IAM role has AWSLoadBalancerControllerIAMPolicy attached."
+if helm status aws-load-balancer-controller -n kube-system >/dev/null 2>&1
+then
+    log "AWS Load Balancer Controller already installed"
+else
+    warn "AWS Load Balancer Controller not found - installing..."
+    warn "Make sure your node IAM role has AWSLoadBalancerControllerIAMPolicy attached."
 
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
         --namespace kube-system \
@@ -183,11 +207,11 @@ if ($LASTEXITCODE -eq 0) {
         --wait \
         --timeout 5m
 
-    Log "AWS Load Balancer Controller installed"
-}
+    log "AWS Load Balancer Controller installed"
+fi
 
 # ── 1. Prometheus ─────────────────────────────────────────────
-Step "1/4 Installing kube-prometheus-stack"
+step "1/4 Installing kube-prometheus-stack"
 
 helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
     --namespace "$MONITORING_NS" \
@@ -196,39 +220,41 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
     --wait \
     --timeout 10m
 
-Log "Prometheus stack installed"
+log "Prometheus stack installed"
 
 # ── 2. Loki ───────────────────────────────────────────────────
-Step "2/4 Installing Loki"
+step "2/4 Installing Loki"
 
 helm upgrade --install loki grafana/loki \
-    --namespace $MONITORING_NS \
+    --namespace "$MONITORING_NS" \
     --values 02-loki-values.yaml \
-    --version $LOKI_CHART_VERSION \
+    --version "$LOKI_CHART_VERSION" \
     --wait \
     --timeout 10m
 
-Log "Loki installed"
+log "Loki installed"
 
 # ── 3. Grafana Alloy ──────────────────────────────────────────
-Step "3/4 Installing Grafana Alloy"
+step "3/4 Installing Grafana Alloy"
 
 helm upgrade --install alloy grafana/alloy \
-    --namespace $MONITORING_NS \
+    --namespace "$MONITORING_NS" \
     --values 03-alloy-values.yaml \
-    --version $ALLOY_CHART_VERSION \
+    --version "$ALLOY_CHART_VERSION" \
     --wait \
     --timeout 10m
 
-Log "Grafana Alloy installed"
+log "Grafana Alloy installed"
+
 
 # ── 4. Grafana ────────────────────────────────────────────────
-Step "4/4 Installing Grafana"
+# ── 4. Grafana ────────────────────────────────────────────────
+step "4/4 Installing Grafana"
 
 helm upgrade --install grafana grafana/grafana \
-    --namespace $MONITORING_NS \
+    --namespace "$MONITORING_NS" \
     --values 04-grafana-values.yaml \
-    --version $GRAFANA_CHART_VERSION \
+    --version "$GRAFANA_CHART_VERSION" \
     --set ingress.enabled=true \
     --set ingress.ingressClassName=alb \
     --set "ingress.path=/" \
@@ -236,22 +262,20 @@ helm upgrade --install grafana grafana/grafana \
     --wait \
     --timeout 10m
 
-Log "Grafana installed"
+log "Grafana installed"
 
 # ── Verify ────────────────────────────────────────────────────
-Step "Pod status in namespace: $MONITORING_NS"
-kubectl get pods -n $MONITORING_NS -o wide
+step "Pod status in namespace: $MONITORING_NS"
+kubectl get pods -n "$MONITORING_NS" -o wide
 
-Step "Ingress status - ALB needs ~2-3 min to provision"
-kubectl get ingress -n $MONITORING_NS
+step "Ingress status - ALB needs ~2-3 min to provision"
+kubectl get ingress -n "$MONITORING_NS"
 
 # ── Get admin password ────────────────────────────────────────
-Step "Grafana admin password"
+step "Verifying Grafana admin secret validation"
 PASSWORD=$(kubectl get secret grafana-admin-secret \
     -n "$MONITORING_NS" \
     -o jsonpath="{.data.admin-password}" | base64 -d)
-
-echo "Grafana Password: $PASSWORD"
 
 # ── Summary ───────────────────────────────────────────────────
 echo
@@ -260,7 +284,7 @@ echo "Deployment Complete!"
 echo "=============================================="
 echo
 echo "Grafana User: admin"
-echo "Grafana Password: $GRAFANA_ADMIN_PASSWORD"
+echo "Grafana Password (Decoded from Cluster): $PASSWORD"
 echo
-echo "Get ALB:"
+echo "To fetch your Application Load Balancer URL, run:"
 echo "kubectl get ingress grafana -n $MONITORING_NS"
