@@ -1,120 +1,167 @@
-# 🚀 3-Tier Application Deployment on AWS EKS
+# 🚀 Production-Ready 3-Tier Application Deployment on AWS EKS
+
+<p align="center">
 
 ![AWS](https://img.shields.io/badge/AWS-EKS-orange)
 ![Terraform](https://img.shields.io/badge/Terraform-IaC-623CE4)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-1.30-blue)
-![Docker](https://img.shields.io/badge/Docker-Containers-2496ED)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-blue)
+![Docker](https://img.shields.io/badge/Docker-2496ED)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI/CD-2088FF)
 
-## 📖 Overview
-This project demonstrates a production-style **3-tier application** deployed on **Amazon EKS** using Infrastructure as Code and modern DevOps practices.
+</p>
 
-### ✨ Features
-- React frontend
-- Node.js backend
+## 📖 Project Overview
+
+This project demonstrates a complete **enterprise-grade DevOps implementation** for deploying a modern **3-Tier Web Application** on **Amazon EKS**.
+
+The infrastructure is fully automated using **Terraform**, authentication from GitHub to AWS is implemented using **GitHub OIDC**, and deployments are automated through separate **QA** and **Production** GitHub Actions pipelines.
+
+A custom domain was purchased and integrated with **Amazon Route 53**, while **AWS Certificate Manager (ACM)** provides SSL/TLS certificates for secure HTTPS access.
+
+---
+
+# ✨ Key Features
+
+- Infrastructure fully provisioned using Terraform
+- GitHub OIDC authentication (No AWS access keys)
+- Separate QA and Production environments
+- Independent QA & Production GitHub Actions pipelines
+- Dockerized React + Node.js application
+- Amazon EKS deployment
 - MySQL StatefulSet
-- Amazon EKS
-- Terraform provisioning
-- GitHub Actions CI/CD
-- QA and Production environments
-- AWS Load Balancer Controller (ALB)
-- External Secrets Operator with AWS Secrets Manager
-- Kubernetes Ingress and Services
+- AWS Secrets Manager + External Secrets Operator
+- AWS Load Balancer Controller
+- Route53 custom domain
+- HTTPS using ACM
+- Kubernetes Ingress
 
-## 🏗️ Architecture
+---
+
+# 🏗 Architecture
+
+| Layer | Technology |
+|------|------------|
+| Source Control | GitHub |
+| Authentication | GitHub OIDC |
+| CI/CD | GitHub Actions |
+| Infrastructure | Terraform |
+| Containers | Docker |
+| Registry | Docker Hub |
+| Kubernetes | Amazon EKS |
+| Ingress | AWS Load Balancer Controller |
+| DNS | Amazon Route53 |
+| SSL | AWS Certificate Manager |
+| Secrets | AWS Secrets Manager + External Secrets |
+| Database | MySQL StatefulSet |
+| Frontend | React |
+| Backend | Node.js |
 
 ```mermaid
 flowchart LR
 A[Developer]-->B[GitHub]
-B-->C[GitHub Actions]
-C-->D[Docker Images]
-C-->E[Terraform]
-E-->F[EKS Cluster]
-F-->G[Frontend]
-F-->H[Backend]
-H-->I[(MySQL)]
-J[AWS Secrets Manager]-->K[External Secrets]
-K-->H
-L[ALB]-->G
-L-->H
+B-->C[QA Workflow]
+B-->D[Production Workflow]
+C-->E[Docker Hub]
+D-->E
+C-->F[Terraform]
+F-->G[EKS]
+B-->H[GitHub OIDC]
+H-->AWS[AWS]
+G-->ALB[ALB Ingress]
+ALB-->R53[Route53]
+R53-->ACM[ACM HTTPS]
+G-->FE[React]
+G-->BE[Node.js]
+BE-->DB[(MySQL)]
+SM[Secrets Manager]-->ESO[External Secrets]
+ESO-->BE
 ```
 
-## 🛠 Tech Stack
-| Layer | Technology |
-|---|---|
-|Frontend|React|
-|Backend|Node.js|
-|Database|MySQL|
-|Containers|Docker|
-|Orchestration|Kubernetes (EKS)|
-|IaC|Terraform|
-|CI/CD|GitHub Actions|
-|Secrets|AWS Secrets Manager + External Secrets|
-|Ingress|AWS ALB|
+# ☁ Infrastructure Provisioned using Terraform
 
-## 📂 Repository Structure (partial)
+- VPC & Networking
+- Amazon EKS Cluster
+- Managed Node Group
+- IAM Roles
+- GitHub OIDC Provider
+- IAM Role for GitHub Actions
+- IAM Role for AWS Load Balancer Controller
+- IAM Role for External Secrets (IRSA)
+- AWS Secrets Manager resources
+- Security Groups
 
-- `3-tier-project-main/`
-- `3-tier-project-main/.github/`
-- `3-tier-project-main/.github/workflows/`
-- `3-tier-project-main/.github/workflows/prod-cicd.yml`
-- `3-tier-project-main/.github/workflows/qa-cicd.yml`
-- `3-tier-project-main/.gitignore`
-- `3-tier-project-main/K8-manifest/`
-- `3-tier-project-main/K8-manifest/app-deploy.yml`
-- `3-tier-project-main/K8-manifest/app-svc.yml`
-- `3-tier-project-main/K8-manifest/ingress.yml`
-- `3-tier-project-main/K8-manifest/prod/`
-- `3-tier-project-main/K8-manifest/prod/app-deployment.yaml`
-- `3-tier-project-main/K8-manifest/prod/app-ingress.yaml`
-- `3-tier-project-main/K8-manifest/prod/app-svc.yaml`
-- `3-tier-project-main/MYSQL-PROD-Yaml-Manifest/`
-- `3-tier-project-main/MYSQL-PROD-Yaml-Manifest/external_secret.yml`
-- `3-tier-project-main/MYSQL-PROD-Yaml-Manifest/secretstore.yml`
-- `3-tier-project-main/MYSQL-PROD-Yaml-Manifest/statefulset.yml`
-- `3-tier-project-main/MYSQL-PROD-Yaml-Manifest/svc.yml`
-- `3-tier-project-main/MYSQL-QA-Yaml-Manifestts/`
-- `3-tier-project-main/MYSQL-QA-Yaml-Manifestts/external-secret.yaml`
-- `3-tier-project-main/MYSQL-QA-Yaml-Manifestts/mysql-statefulset.yaml`
-- `3-tier-project-main/MYSQL-QA-Yaml-Manifestts/mysql-svc.yaml`
-- `3-tier-project-main/MYSQL-QA-Yaml-Manifestts/secretstore.yml`
-- `3-tier-project-main/client/`
-- `3-tier-project-main/client/.babelrc`
-- `3-tier-project-main/client/package-lock.json`
-- `3-tier-project-main/client/package.json`
-- `3-tier-project-main/client/public/`
-- `3-tier-project-main/client/public/bundle.js`
-- `3-tier-project-main/client/public/bundle.js.LICENSE.txt`
-- `3-tier-project-main/client/public/c592f33a595971f260033277055bfd43.png`
-- `3-tier-project-main/client/public/index.html`
-- `3-tier-project-main/client/public/style.css`
-- `3-tier-project-main/client/src/`
-- `3-tier-project-main/client/src/App.css`
-- `3-tier-project-main/client/src/App.js`
-- `3-tier-project-main/client/src/Youtube_Banner.png`
-- `3-tier-project-main/client/src/api/`
-- `3-tier-project-main/client/src/api/users.js`
+# 🔄 QA → Production CI/CD Flow
 
-## 🚀 Deployment
-1. Provision AWS infrastructure with Terraform.
-2. Configure GitHub OIDC and required IAM roles.
-3. Build and push Docker images via GitHub Actions.
-4. Deploy Kubernetes manifests for QA or Production.
-5. Apply External Secrets and MySQL resources.
-6. Expose the application using AWS ALB Ingress.
+1. Developer pushes code to **QA** branch.
+2. QA GitHub Actions pipeline builds Docker images.
+3. Images are pushed to Docker Hub.
+4. Kubernetes manifests are updated and deployed to the QA namespace.
+5. Application is validated in QA.
+6. Code is merged into the production branch.
+7. Production pipeline promotes the approved image and deploys it to Production.
+8. Rollout status is verified automatically.
 
-## 🔐 Security
-- GitHub OIDC (no long-lived AWS keys)
-- AWS Secrets Manager integration
-- Kubernetes Secrets via External Secrets Operator
+# 🌐 Custom Domain & HTTPS
 
-## 📈 Future Enhancements
+- Purchased a custom domain.
+- Configured Amazon Route53 Hosted Zone.
+- Requested and validated ACM certificate.
+- Configured AWS ALB Ingress.
+- Enabled secure HTTPS access.
+
+# 📷 Project Walkthrough
+
+Create `assets/images/` and place screenshots in this order:
+
+1. Repository Structure
+2. Terraform Apply
+3. GitHub OIDC Configuration
+4. EKS Cluster
+5. Docker Images
+6. QA Pipeline Success
+7. QA Application
+8. AWS Secrets Manager
+9. External Secrets
+10. MySQL StatefulSet
+11. ALB Ingress
+12. Route53 Hosted Zone
+13. ACM Certificate
+14. Production Pipeline
+15. Production Application
+16. HTTPS Working
+
+Example:
+
+```md
+## Step 1 - Repository Structure
+![Repository](assets/images/01-repository.png)
+
+## Step 2 - Terraform Deployment
+![Terraform](assets/images/02-terraform.png)
+```
+
+# 📁 Repository Structure
+
+```text
+client/
+server/
+kubernetes/
+terraform/
+.github/workflows/
+```
+
+# 🚀 Future Enhancements
+
+- ArgoCD GitOps
+- Blue/Green Deployment
+- Canary Deployment
 - Prometheus & Grafana
-- Loki/Tempo
-- Argo CD
-- Blue/Green or Canary deployments
+- Loki
+- Tempo
+- Horizontal Pod Autoscaler
 
-## 👤 Author
+# 👨‍💻 Author
+
 **Mayank Fulzele**
 
-If you found this project helpful, please ⭐ the repository.
+If you found this project useful, consider giving it a ⭐.
