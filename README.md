@@ -4,6 +4,7 @@
 
 ### End-to-End DevOps Implementation using Terraform, GitHub Actions, GitHub OIDC, Kubernetes, Docker, Route 53, ACM & Grafana Observability Stack
 
+
 <p align="center">
 
 ![AWS](https://img.shields.io/badge/AWS-EKS-orange?style=for-the-badge&logo=amazonaws)
@@ -41,6 +42,40 @@ The application is exposed through a **custom domain** purchased separately and 
 The project also includes a complete **Grafana Observability Stack**, enabling centralized monitoring, logging, and distributed tracing for Kubernetes workloads.
 
 ---
+
+---
+
+# 🚀 CI/CD & DevSecOps Highlights
+
+This project implements a production-oriented CI/CD pipeline with integrated security scanning, automated deployments, and optimized execution performance.
+
+### Key Highlights
+
+- Designed and implemented an end-to-end **GitHub Actions CI/CD pipeline** to automate application build, security scanning, containerization, and deployment to Amazon EKS.
+
+- Implemented separate **QA** and **Production** deployment pipelines, enabling code validation in the QA environment before promotion to Production.
+
+- Optimized pipeline execution by introducing **self-hosted GitHub Actions runners**, reducing workflow execution time by approximately **50%** through pre-installed tooling and elimination of GitHub-hosted runner initialization overhead.
+
+- Improved overall pipeline performance by executing independent jobs such as security scans and linting in parallel, reducing total pipeline duration by approximately **30–40%**.
+
+- Integrated **DevSecOps** practices using:
+  - **Gitleaks** – Secret Detection
+  - **Checkov** – Infrastructure as Code Security
+  - **Trivy** – Container & Filesystem Vulnerability Scanning
+  - **SonarQube** – Static Code Analysis & Code Quality
+
+- Performed automated security validation for source code, Terraform configurations, Docker images, and Kubernetes manifests before every deployment.
+
+- Leveraged **SonarQube** quality gates to identify code smells, bugs, and maintainability issues early in the development lifecycle.
+
+- Built and published Docker images using **commit SHA tagging**, enabling immutable deployments, version traceability, and simplified rollback strategies.
+
+- Implemented secure AWS authentication using **GitHub OpenID Connect (OIDC)** with IAM Roles, eliminating long-lived AWS credentials and following the principle of least privilege.
+
+- Automated deployment to **Amazon EKS** using GitHub Actions, ensuring consistent and repeatable deployments across QA and Production environments.
+
+  
 
 # ✨ Key Features
 
